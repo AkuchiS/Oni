@@ -1,0 +1,7 @@
+[project]
+name = "tinyrepo"
+description = "a minimal example project for oni tests"
+dependencies = ["requests>=2.0", "click"]
+
+[project.scripts]
+tiny = "app:main"
