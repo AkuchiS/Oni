@@ -1,0 +1,45 @@
+<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="oni">
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9B3BE8"/>
+      <stop offset="1" stop-color="#571C9C"/>
+    </linearGradient>
+    <linearGradient id="horn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F3F1F8"/>
+      <stop offset="1" stop-color="#C4BFD6"/>
+    </linearGradient>
+    <radialGradient id="eye" cx="0.5" cy="0.45" r="0.65">
+      <stop offset="0" stop-color="#FFE79A"/>
+      <stop offset="0.45" stop-color="#F06A2E"/>
+      <stop offset="1" stop-color="#8E1414"/>
+    </radialGradient>
+  </defs>
+
+  <!-- horns -->
+  <path d="M86 80 C58 68 44 42 50 18 C68 34 80 42 94 60 C100 68 98 76 86 80 Z"
+        fill="url(#horn)" stroke="#3A2A5E" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M154 80 C182 68 196 42 190 18 C172 34 160 42 146 60 C140 68 142 76 154 80 Z"
+        fill="url(#horn)" stroke="#3A2A5E" stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- face / mask -->
+  <path d="M120 64 C170 64 204 96 204 136 C204 180 168 212 120 220 C72 212 36 180 36 136 C36 96 70 64 120 64 Z"
+        fill="url(#face)" stroke="#2E2050" stroke-width="3.5" stroke-linejoin="round"/>
+
+  <!-- angry brows -->
+  <path d="M60 116 L114 136 L106 150 L62 132 Z" fill="#241640"/>
+  <path d="M180 116 L126 136 L134 150 L178 132 Z" fill="#241640"/>
+
+  <!-- glowing eyes -->
+  <ellipse cx="88" cy="152" rx="17" ry="12.5" fill="url(#eye)"/>
+  <ellipse cx="152" cy="152" rx="17" ry="12.5" fill="url(#eye)"/>
+  <circle cx="88" cy="152" r="4.2" fill="#2A0A10"/>
+  <circle cx="152" cy="152" r="4.2" fill="#2A0A10"/>
+
+  <!-- nose -->
+  <path d="M120 158 L110 182 L130 182 Z" fill="#2E2050"/>
+
+  <!-- fanged grin -->
+  <path d="M82 188 Q120 214 158 188 Q120 200 82 188 Z" fill="#241640"/>
+  <path d="M98 190 L104 206 L110 190 Z" fill="#F3F1F8"/>
+  <path d="M142 190 L136 206 L130 190 Z" fill="#F3F1F8"/>
+</svg>

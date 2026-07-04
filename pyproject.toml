@@ -35,3 +35,7 @@ packages = ["oni"]
 
 [tool.setuptools.package-data]
 oni = []
+
+[tool.pytest.ini_options]
+# only collect oni's own suite — fixtures/ is sample data (a mini-repo oni tears down), not tests
+testpaths = ["tests"]

@@ -1,9 +1,20 @@
-<h1 align="center">oni 👹</h1>
+<p align="center">
+  <img src="assets/logo.svg" width="128" alt="oni">
+</p>
+
+<h1 align="center">oni</h1>
 
 <p align="center"><b>A clean-room, source-level reverse-engineering engine.</b><br>
 Point it at one repo. It tears the codebase down to the things worth knowing —<br>
 what it is, how it works, <i>which</i> files are the crown jewels, and a plan for<br>
 rebuilding the good ideas natively without copying a line.</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.8%2B-blue.svg" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/dependencies-none%20(stdlib)-brightgreen.svg" alt="zero deps">
+  <img src="https://img.shields.io/badge/tests-offline-brightgreen.svg" alt="offline tests">
+</p>
 
 <p align="center">
 <code>pure stdlib</code> · <code>zero deps</code> · <code>offline & keyless</code> · <code>LLM optional</code>
