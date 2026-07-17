@@ -113,6 +113,8 @@ def build(fp, query=None, max_files=4000):
         lang = util.lang_of(rel)
         if lang not in util.CODE_LANGS:
             continue
+        if util.is_test_path(rel):
+            continue        # a test helper is not a crown jewel — see util.is_test_path
         if len(files) >= max_files:
             break
         text = util.read_text(ap)

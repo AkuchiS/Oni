@@ -43,7 +43,7 @@ def _brief(fp, gmap, jewels, ep):
     lines.append("\nARCHITECTURE (top dirs by centrality):")
     for c in gmap["clusters"][:8]:
         lines.append("  - %s/ : %d files" % (c["dir"], c["files"]))
-    lines.append("\nCROWN-JEWEL SYMBOLS (highest centrality — the mechanism lives here):")
+    lines.append("\nCROWN-JEWEL SYMBOLS (highest centrality — what the codebase depends on most):")
     for j in jewels:
         lines.append("  # %s  (%s %s:%d, %d referrers)" % (j["name"], j["kind"], j["file"], j["line"], j["referrers"]))
         if j["excerpt"]:
@@ -86,9 +86,9 @@ def _heuristic(fp, gmap, jewels, ep):
     what = fp.get("readme") or ("A %s project (%d files, %s LOC)." % (
         prim, fp["total_files"], fp["total_loc"]))
     top_dirs = ", ".join("%s/" % c["dir"] for c in gmap["clusters"][:4] if c["dir"] != "(root)")
-    jn = ", ".join(j["name"] for j in jewels[:6])
+    jn = ", ".join(j.get("display") or j["name"] for j in jewels[:6])
     how = ("Written primarily in %s. The centre of gravity is %s; the most-referenced symbols are "
-           "%s — start there to understand the control flow." % (prim, top_dirs or "the root package", jn or "(none found)"))
+           "%s — the code the rest of it leans on." % (prim, top_dirs or "the root package", jn or "(none found)"))
     patterns = []
     sig = fp["signals"]
     if sig["tests"]:

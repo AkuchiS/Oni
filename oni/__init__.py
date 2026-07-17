@@ -2,8 +2,8 @@
 oni — a source-level reverse-engineering engine.
 
 Point it at one repo (a GitHub `owner/repo`, a URL, or a local path) and it tears the
-codebase down into the things worth knowing: what it is, how it's built, WHICH files are
-the crown jewels, how the important mechanism actually works, and — the payoff — an
+codebase down into the things worth knowing: what it is, how it's built, WHICH code the rest
+of it depends on (the crown jewels), how it hangs together, and — the payoff — an
 *adoption plan* that tells you which patterns to reimplement natively and how the target's
 licence constrains that.
 

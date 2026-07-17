@@ -184,3 +184,77 @@ def test_progress_callback_fires():
     seen = []
     pipeline.teardown(FIXTURE, on_progress=seen.append)
     assert "fingerprint" in seen and "adopt" in seen
+
+
+# --- regression: the three defects found auditing oni against a real repo (2026-07-17) ---------
+# Each of these shipped in v0.1.0 and was found only by pointing oni at a real project, not by the
+# suite. They are pinned here so they cannot come back quietly.
+
+from oni import jewels as _jewels
+from oni import util as _util
+
+
+def test_test_files_are_not_crown_jewels():
+    """A helper defined in a test suite is not the code a project leans on.
+    (oni ranked `failing` from tests/test_roost.py as roost's #4 crown jewel.)"""
+    for p in ("tests/test_roost.py", "test/foo.py", "spec/thing_spec.rb", "src/x.test.js",
+              "conftest.py", "pkg/__tests__/a.js", "fixtures/tinyrepo/app.py"):
+        assert _util.is_test_path(p), p
+    for p in ("roost/config.py", "oni/graphmap.py", "src/contest.py", "app/latest.py",
+              "lib/protest/main.py"):
+        assert not _util.is_test_path(p), p
+
+
+def test_module_of_labels_a_symbol_by_its_file():
+    assert _util.module_of("roost/config.py") == "config"
+    assert _util.module_of("a/b/health.py") == "health"
+    assert _util.module_of("roost/__init__.py") == "roost"      # package name, not "__init__"
+    assert _util.module_of("") == ""
+
+
+def test_duplicate_jewel_names_are_qualified_by_module():
+    """Two real symbols can share a name; rendering both as bare "load" read as a bug:
+    'the most-referenced symbols are load, load, registry'."""
+    js = [{"name": "load", "file": "roost/config.py"},
+          {"name": "load", "file": "roost/health.py"},
+          {"name": "registry", "file": "roost/providers.py"}]
+    _jewels._qualify(js)
+    assert js[0]["display"] == "config.load"
+    assert js[1]["display"] == "health.load"
+    assert js[2]["display"] == "registry"          # unambiguous names stay clean
+    assert len({j["display"] for j in js}) == 3
+
+
+def test_readme_blurb_never_returns_raw_html():
+    """A README opening with a centred logo/badge block must not become the "What it is" line.
+    (roost's teardown reported: '<img src="docs/roost-logo.svg" alt="roost" width="440"')."""
+    import tempfile
+    from oni import fingerprint
+    body = (
+        '<div align="center">\n'
+        '<img src="docs/roost-logo.svg" alt="roost" width="440">\n'
+        '<h1 align="center">roost</h1>\n'
+        '</div>\n\n'
+        '[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)\n\n'
+        'All your models under one roof: a small local gateway that routes each prompt '
+        'to the model that is actually good at it.\n'
+    )
+    with tempfile.TemporaryDirectory() as d:
+        open(os.path.join(d, "README.md"), "w", encoding="utf-8").write(body)
+        blurb = fingerprint._readme_blurb(d)
+    assert blurb, "should still find the real prose paragraph"
+    assert "<" not in blurb and ">" not in blurb, blurb
+    assert "img" not in blurb.lower() and "src=" not in blurb, blurb
+    assert "shields.io" not in blurb, blurb
+    assert blurb.startswith("All your models under one roof")
+
+
+def test_crown_jewels_promise_matches_what_centrality_actually_finds():
+    """The report must not promise 'the mechanism' when PageRank-over-references returns the
+    most-depended-on code (which legitimately includes helpers). A claim outrunning the code is
+    the exact shape of the roost incident."""
+    from oni import report
+    src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "oni", "report.py"), encoding="utf-8").read()
+    assert "the mechanism lives here" not in src
+    assert "study these first" not in src.lower()

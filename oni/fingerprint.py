@@ -142,12 +142,23 @@ def _readme_blurb(root):
         p = os.path.join(root, name)
         if os.path.isfile(p):
             text = util.read_text(p, limit=4000)
-            # first non-heading, non-badge paragraph
+            # First real prose paragraph. Modern READMEs open with an HTML block — a centred
+            # <div>, a logo <img>, a row of badges — and stripping only markdown punctuation let
+            # that through verbatim: roost's teardown reported its "What it is" as
+            #   <img src="docs/roost-logo.svg" alt="roost" width="440"
+            # So drop HTML tags FIRST, then judge the length on what a human would actually read.
             for para in re.split(r"\n\s*\n", text):
-                clean = re.sub(r"[#>*_`\[\]!]", "", para).strip()
-                clean = re.sub(r"https?://\S+", "", clean).strip()
-                if len(clean) > 40 and "shields.io" not in para and "badge" not in para.lower():
-                    return re.sub(r"\s+", " ", clean)[:400]
+                if "shields.io" in para or "badge" in para.lower():
+                    continue
+                clean = re.sub(r"<[^>]*>", " ", para)              # HTML tags → gone
+                clean = re.sub(r"[#>*_`\[\]!|]", "", clean)        # markdown punctuation
+                clean = re.sub(r"https?://\S+", "", clean)         # bare links
+                clean = re.sub(r"\s+", " ", clean).strip()
+                # an unterminated tag ("<img src=... width=\"440\"") leaves attribute noise behind
+                if re.search(r"\b(src|href|alt|width|height|align)\s*=", clean):
+                    continue
+                if len(clean) > 40:
+                    return clean[:400]
     return None
 
 

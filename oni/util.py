@@ -6,6 +6,7 @@ github-linguist's extension table — enough to fingerprint the vast majority of
 shipping linguist's full YAML.
 """
 import os
+import re
 
 # --- extension → language (linguist-lite) --------------------------------------------------
 LANGS = {
@@ -58,6 +59,38 @@ def lang_of(path):
 def is_skippable(name):
     n = name.lower()
     return n.endswith(SKIP_FILE_SUFFIX)
+
+
+def module_of(rel_path):
+    """The module name for a source path — 'roost/config.py' -> 'config'.
+
+    Used to tell same-named symbols apart (config.load vs health.load). For a package
+    __init__, the package name is the useful label, not '__init__'.
+    """
+    base = os.path.basename(rel_path or "")
+    stem = os.path.splitext(base)[0]
+    if stem == "__init__":
+        parent = os.path.basename(os.path.dirname(rel_path or ""))
+        return parent or stem
+    return stem
+
+
+_TEST_PATH = re.compile(
+    r"(^|/)(tests?|testing|spec|specs|__tests__|e2e|fixtures?)(/|$)"      # a test/fixture directory
+    r"|(^|/)(test_[^/]+|[^/]+_test|[^/]+\.test|[^/]+\.spec)\.[A-Za-z0-9]+$"  # test_x.py / x_test.go / x.test.js
+    r"|(^|/)conftest\.py$",
+    re.I)
+
+
+def is_test_path(rel_path):
+    """Is this a test/fixture file rather than the codebase's own source?
+
+    Crown jewels are meant to be the code the project leans on; a helper defined inside its
+    test suite is not that (oni ranked `failing` from tests/test_roost.py as the #4 jewel of
+    roost). Tests are excluded from the graph entirely: their symbols aren't jewels, and their
+    call patterns shouldn't drive what counts as important in the source either.
+    """
+    return bool(_TEST_PATH.search((rel_path or "").replace(os.sep, "/")))
 
 
 def walk_source(root):

@@ -85,10 +85,12 @@ def to_markdown(result):
     # --- crown jewels ---
     L.append("## Crown jewels")
     L.append("")
-    L.append("The highest-centrality symbols — study these first; the mechanism lives here.")
+    L.append("The symbols the rest of the codebase depends on most — the load-bearing code. "
+             "Centrality measures what everything *leans on*, so widely-called helpers rank here "
+             "legitimately; this is the spine, not necessarily the mechanism.")
     L.append("")
     for j in jewels:
-        L.append("### `%s` — %s" % (j["name"], j["kind"]))
+        L.append("### `%s` — %s" % (j.get("display") or j["name"], j["kind"]))
         L.append("`%s:%d` · %d referrers · centrality %.4f" % (j["file"], j["line"], j["referrers"], j["score"]))
         if j["excerpt"]:
             lang = util.lang_of(j["file"]) or ""

@@ -48,7 +48,7 @@ A `TEARDOWN.md` (and matching `teardown.json`) with:
 | **Snapshot** | Languages, size, licence, and signals (tests / CI / Docker / docs). |
 | **What it is / How it works** | A tight, specific narrative — real modules and symbols, no filler. |
 | **Architecture** | Top-level areas ranked by centrality + the detected entrypoints. |
-| **Crown jewels** | The highest-centrality symbols, each with a short verbatim excerpt. Study these first. |
+| **Crown jewels** | The most depended-on symbols (highest centrality), each with a short verbatim excerpt. The spine of the codebase — note that widely-called helpers legitimately rank here. |
 | **Patterns · Strengths · Weaknesses** | The reusable ideas, what it does well, where it's weak. |
 | **Adoption plan** | Per pattern: *what to build natively*, effort (S/M/L), and why — a clean-room spec, never a copy. |
 
@@ -64,7 +64,9 @@ Finding "the important files" is the hard part, and Oni does it the way
    widely-used symbols float to the top. A `--query` biases the teleport vector so *"point at
    authentication"* surfaces the auth machinery, not just the globally-central files.
 3. **Spread each file's rank across its symbols** → a ranking *per symbol*. Those are your crown
-   jewels: the code the rest of the codebase leans on.
+   jewels: the code the rest of the codebase leans on. Centrality measures what is *depended on*,
+   so heavily-used helpers rank high by design — this finds the spine, not a curated tour of the
+   mechanism. Test files are excluded; a test helper is not a crown jewel.
 
 No embeddings, no external service, no index server — just `ast`, regex, and ~30 lines of PageRank.
 

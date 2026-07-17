@@ -45,7 +45,27 @@ def select(gmap, n=12):
         })
         if len(out) >= n:
             break
+    _qualify(out)
     return out
+
+
+def _qualify(jewels):
+    """Give every jewel a `display` name, qualifying only the ambiguous ones.
+
+    Two different symbols can share a name (roost has `load` in both config.py and health.py).
+    Both are legitimate jewels, but rendering each as bare "load" reads as a duplicate/bug —
+    "the most-referenced symbols are load, load, registry". Qualify a clashing name with its
+    module (config.load / health.load); leave unambiguous names alone so the common case stays clean.
+    """
+    counts = {}
+    for j in jewels:
+        counts[j["name"]] = counts.get(j["name"], 0) + 1
+    for j in jewels:
+        if counts[j["name"]] > 1:
+            mod = util.module_of(j["file"])
+            j["display"] = "%s.%s" % (mod, j["name"]) if mod else j["name"]
+        else:
+            j["display"] = j["name"]
 
 
 def entrypoints(fp, gmap):
