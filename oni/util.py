@@ -7,6 +7,7 @@ shipping linguist's full YAML.
 """
 import os
 import re
+import stat
 
 # --- extension → language (linguist-lite) --------------------------------------------------
 LANGS = {
@@ -93,30 +94,49 @@ def is_test_path(rel_path):
     return bool(_TEST_PATH.search((rel_path or "").replace(os.sep, "/")))
 
 
-def walk_source(root):
-    """Yield (abs_path, rel_path) for every non-skipped file under root.
+def is_linklike(path):
+    """Skip symlinks and Windows reparse points, including junctions."""
+    try:
+        info = os.lstat(path)
+        return stat.S_ISLNK(info.st_mode) or bool(
+            getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 1024))
+    except OSError:
+        return True
 
-    Prunes SKIP_DIRS in-place so we never descend into vendored trees. Order is stable
-    (sorted) so runs are reproducible.
-    """
+
+def walk_source(root):
+    """Walk deterministically, checking links/reparse points before file-type queries."""
     root = os.path.abspath(root)
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".git"))
-        for fn in sorted(filenames):
-            if is_skippable(fn):
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        try:
+            with os.scandir(directory) as scan:
+                entries = sorted(scan, key=lambda entry: entry.name)
+        except OSError:
+            continue
+        directories = []
+        for entry in entries:
+            ap = entry.path
+            if is_linklike(ap):
                 continue
-            ap = os.path.join(dirpath, fn)
             try:
-                if os.path.getsize(ap) > MAX_FILE_BYTES:
-                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name not in SKIP_DIRS:
+                        directories.append(ap)
+                elif (entry.is_file(follow_symlinks=False) and not is_skippable(entry.name)
+                      and entry.stat(follow_symlinks=False).st_size <= MAX_FILE_BYTES):
+                    yield ap, os.path.relpath(ap, root).replace(os.sep, "/")
             except OSError:
                 continue
-            yield ap, os.path.relpath(ap, root)
+        pending.extend(reversed(directories))
 
 
 def read_text(path, limit=MAX_FILE_BYTES):
     """Read a file as text, tolerant of encoding. Returns '' on any failure."""
     try:
+        if is_linklike(path) or not os.path.isfile(path):
+            return ""
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             return f.read(limit)
     except (OSError, ValueError):

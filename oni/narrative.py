@@ -12,7 +12,7 @@ from . import llm
 
 _SYSTEM = (
     "You are a senior reverse engineer producing a precise technical teardown of a codebase for a "
-    "team that will REIMPLEMENT the good ideas natively (clean-room), never copy the code. Be "
+    "team drafting an independent implementation proposal, never copying the code. Do not claim clean-room separation or permission to reuse. Be "
     "concrete and specific to THIS code — name real modules and symbols. No filler, no marketing."
 )
 
@@ -51,10 +51,10 @@ def _brief(fp, gmap, jewels, ep):
     return "\n".join(lines)
 
 
-def analyze(fp, gmap, jewels, ep):
+def analyze(fp, gmap, jewels, ep, use_llm=True):
     """Return the teardown dict. Uses the model if available; else a heuristic build."""
     brief = _brief(fp, gmap, jewels, ep)
-    if llm.available():
+    if use_llm and llm.available():
         raw = llm.complete(_INSTR + "\n\n=== CODEBASE BRIEF ===\n" + brief, system=_SYSTEM)
         parsed = _parse_json(raw)
         if parsed:
@@ -92,7 +92,7 @@ def _heuristic(fp, gmap, jewels, ep):
     patterns = []
     sig = fp["signals"]
     if sig["tests"]:
-        patterns.append("has a test suite (behaviour is specified — good for clean-room extraction)")
+        patterns.append("test files detected (review their assertions to learn intended behaviour)")
     if sig["ci"]:
         patterns.append("CI pipeline present")
     if sig["docker"]:
@@ -104,7 +104,7 @@ def _heuristic(fp, gmap, jewels, ep):
         patterns = ["structural analysis only — configure a model (ONI_MODEL) for a deeper read"]
     strengths, weaknesses = [], []
     if sig["tests"]:
-        strengths.append("test coverage exists")
+        strengths.append("test files detected (coverage not measured)")
     if sig["docs"]:
         strengths.append("documented")
     if not sig["tests"]:

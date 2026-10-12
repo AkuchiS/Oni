@@ -1,161 +1,143 @@
-<p align="center">
-  <img src="assets/logo.svg" width="128" alt="Oni">
-</p>
+<p align="center"><img src="https://raw.githubusercontent.com/AkuchiS/Oni/main/assets/logo.svg" width="128" alt="Oni source architecture analysis"></p>
 
-<h1 align="center">Oni</h1>
+# Oni — offline source architecture analysis
 
-<p align="center"><b>A clean-room, source-level reverse-engineering engine.</b><br>
-Point it at one repo. It tears the codebase down to the things worth knowing —<br>
-what it is, how it works, <i>which</i> files are the crown jewels, and a plan for<br>
-rebuilding the good ideas natively without copying a line.</p>
+Map a repository, find the code it depends on most, and draft an adoption plan.
+Oni turns source code into a Markdown report and structured JSON using Python's standard library.
+Use it for codebase onboarding, architecture research, and comparing implementation patterns.
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.8%2B-blue.svg" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/dependencies-none%20(stdlib)-brightgreen.svg" alt="zero deps">
-  <img src="https://img.shields.io/badge/tests-offline-brightgreen.svg" alt="offline tests">
-</p>
+[![CI](https://github.com/AkuchiS/Oni/actions/workflows/ci.yml/badge.svg)](https://github.com/AkuchiS/Oni/actions/workflows/ci.yml)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AkuchiS/Oni/blob/main/LICENSE)
+![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 
-<p align="center">
-<code>pure stdlib</code> · <code>zero deps</code> · <code>offline & keyless</code> · <code>LLM optional</code>
-</p>
+[Example report](https://github.com/AkuchiS/Oni/blob/main/docs/examples/tinyrepo.md) · [Agent integration](https://github.com/AkuchiS/Oni/blob/main/docs/agents.md) ·
+[Reproducible evaluation](https://github.com/AkuchiS/Oni/blob/main/docs/evaluation.md) · [Changelog](https://github.com/AkuchiS/Oni/blob/main/CHANGELOG.md) · [Contributing](https://github.com/AkuchiS/Oni/blob/main/CONTRIBUTING.md)
 
----
+## Try it on the bundled example
 
-## Why
+Requires Python 3.8+. Run these commands from this checkout; no package installation,
+model, account, or network is needed for the analysis:
 
-Every team ends up reverse-engineering other people's code — to learn a pattern, to size up a
-rival, to decide *is there anything here worth having?* Done by hand it's a slow crawl: clone,
-grep, guess which files matter, read the wrong ones first, and eventually reconstruct the shape.
-
-**Oni turns that crawl into one command.** It finds the important code for you (centrality, not
-guesswork), explains the mechanism, and — the part most tools skip — tells you how the target's
-**licence** governs what you're allowed to do with what you just learned.
-
-```bash
-oni Aider-AI/aider
-oni ./path/to/local/repo --query "how does the planner work"
-oni https://github.com/psf/requests --no-llm --out ./teardowns
+```sh
+python3 -m oni ./fixtures/tinyrepo --offline
+python3 -m oni ./fixtures/tinyrepo --offline --json
 ```
 
-## What you get
+The report includes detected languages and licence, an architecture map, central symbols with
+file/line references and short source excerpts, and a draft adoption plan.
+The bundled example identifies `core/engine.py` among the two highest-ranked source files.
 
-A `TEARDOWN.md` (and matching `teardown.json`) with:
+For an installed command, use an isolated environment:
 
-| Section | What it tells you |
-|---|---|
-| **Adoption posture** | The licence, and *exactly* how you may reuse this — shown first, on purpose. |
-| **Snapshot** | Languages, size, licence, and signals (tests / CI / Docker / docs). |
-| **What it is / How it works** | A tight, specific narrative — real modules and symbols, no filler. |
-| **Architecture** | Top-level areas ranked by centrality + the detected entrypoints. |
-| **Crown jewels** | The most depended-on symbols (highest centrality), each with a short verbatim excerpt. The spine of the codebase — note that widely-called helpers legitimately rank here. |
-| **Patterns · Strengths · Weaknesses** | The reusable ideas, what it does well, where it's weak. |
-| **Adoption plan** | Per pattern: *what to build natively*, effort (S/M/L), and why — a clean-room spec, never a copy. |
-
-## The crown-jewel engine
-
-Finding "the important files" is the hard part, and Oni does it the way
-[Aider](https://github.com/Aider-AI/aider) does — reimplemented in pure stdlib:
-
-1. **Model the repo as a graph.** Nodes are files. For every identifier a file *references* that's
-   *defined* in another file, add an edge (referencer → definer), weighted by reference count and
-   up-weighted for meaningful `snake_case` / `CamelCase` names.
-2. **Run PageRank** over that graph (power iteration, damping 0.85). Files that define
-   widely-used symbols float to the top. A `--query` biases the teleport vector so *"point at
-   authentication"* surfaces the auth machinery, not just the globally-central files.
-3. **Spread each file's rank across its symbols** → a ranking *per symbol*. Those are your crown
-   jewels: the code the rest of the codebase leans on. Centrality measures what is *depended on*,
-   so heavily-used helpers rank high by design — this finds the spine, not a curated tour of the
-   mechanism. Test files are excluded; a test helper is not a crown jewel.
-
-No embeddings, no external service, no index server — just `ast`, regex, and ~30 lines of PageRank.
-
-## Clean-room by design
-
-Oni exists to help you **learn from** code, not launder it. So it never copies a target into your
-tree, keeps excerpts short (intent, not implementation), and leads every report with the licence:
-
-- **Permissive** (MIT / Apache / BSD / ISC) → reuse patterns freely; keep an attribution note.
-- **Copyleft** (GPL / AGPL / LGPL / MPL) → **clean-room only**: study behaviour, write a spec,
-  reimplement from the spec. AGPL is flagged as network-triggering. A close rewrite of copyleft
-  source can itself be a derivative work — Oni says so, loudly.
-- **Unknown / none** → treated as all-rights-reserved until a human confirms.
-
-The adoption plan only ever proposes *native reimplementations*.
-
-## Install
-
-```bash
-./install.sh                 # pipx / pip --user / zero-install shim, in that order
-# or
-pip install -e .             # then `oni` is on your PATH
-# or just
-python3 -m oni <target>      # no install at all
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install .
+.venv/bin/oni ./fixtures/tinyrepo --offline
 ```
 
-Requires Python 3.8+. Nothing else.
+On Windows, use `.venv\Scripts\python -m pip install .` and `.venv\Scripts\oni`.
+On macOS/Linux, `./install.sh` creates a user-owned virtual environment and prints its command path.
+Installation may download build tools. The analysis itself has no third-party runtime dependencies.
+Do not assume the `oni-re` name is already published on PyPI; this checkout is the supported source.
 
-## Using a model (optional)
+## Use your own repository
 
-Every stage has a heuristic fallback, so Oni is fully useful with **no model at all**. Give it one
-and the narrative + adoption plan get sharper. Configuration is by environment — it drops onto any
-OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama, vLLM, LM Studio, …):
-
-```bash
-export ONI_API_KEY=sk-...            # omit for a local/Ollama endpoint
-export ONI_MODEL=gpt-4o-mini         # or any model your endpoint serves
-export ONI_ENDPOINT=https://api.openai.com/v1   # or http://localhost:11434/v1, etc.
-oni some/repo
+```sh
+oni /absolute/path/to/repo --offline --query "authentication"
+oni /absolute/path/to/repo --offline --out ./teardowns
+oni psf/requests --no-llm --out ./teardowns
 ```
 
-Force the offline path any time with `--no-llm`.
+`--offline` requires a local directory and disables acquisition and model requests.
+`--no-llm` explicitly disables the model (also the default): GitHub targets still need the network.
+Local analysis does not import or execute the target's code. It skips source symlinks,
+common generated/vendor folders and files over 1 MB. It does not implement `.gitignore`
+or automatically redact secrets. Use a reviewed source checkout, not a home directory.
 
-## As a library
+## How the map works
+
+1. Detect language, source size, manifests, licence text and repository signals.
+2. Build a graph from symbol definitions and identifier references between source files.
+3. Rank that graph with PageRank. `--query` biases ranking toward matching concepts.
+4. Surface central symbols, entrypoints, source excerpts and an adoption draft.
+
+Python uses `ast`; other supported languages use approximate regex extraction.
+Centrality measures dependency patterns, not correctness or business importance. Widely used
+helpers can rank highly. Dynamic imports and generated code can be missed. Test presence is
+not test coverage, and a heuristic narrative does not prove runtime behaviour.
+
+## Research and clean-room boundaries
+
+Oni can support the research phase of an independent implementation. Reports contain source
+excerpts, so reading one does **not** establish clean-room separation. Licence detection is a
+heuristic; per-file terms, notices and other obligations still need review. An adoption plan is
+a proposal, not legal clearance or an automatically verified specification.
+
+## For agents
+
+Run the CLI with `--offline --json`, or launch the local MCP server with an explicit allowed root:
+
+```sh
+oni-mcp --root /absolute/path/to/research-checkouts
+```
+
+The MCP tool only reads local source. It provides no shell execution, cloning, model requests
+or report-file writes. See [agent configuration and usage](https://github.com/AkuchiS/Oni/blob/main/docs/agents.md).
+
+## Optional model assistance
+
+By default, Oni generates structural heuristics even when model credentials exist.
+Use `--llm` (or library `use_llm=True`) to opt into model calls. `--offline` and `--no-llm`
+always override that opt-in.
+The selected provider receives a brief containing repository metadata, source excerpts, and
+any supplied adopter context. Only enable this for material you may send to that provider.
+Configure `ONI_ENDPOINT`, `ONI_MODEL`, and, when required, `ONI_API_KEY` in your environment.
+An explicit `ONI_ENDPOINT` uses only `ONI_API_KEY`, never a generic OpenAI key. Without an
+Oni endpoint/key, the generic pair is `OPENAI_BASE_URL` (or `OPENAI_API_BASE`) and
+`OPENAI_API_KEY`; `OPENAI_MODEL` is the model fallback. An Oni key without an Oni endpoint
+uses `https://api.openai.com/v1`. `ONI_NO_LLM` disables calls regardless of flags.
+Credentials require HTTPS; keyless HTTP is accepted only for loopback hosts. Redirects are not
+followed. Loopback requests bypass ambient HTTP proxies. Model responses over 1 MiB or with
+an invalid response shape fall back to heuristics. Oni prints the destination hostname to stderr before a model request.
+
+## CLI and library
+
+```text
+oni TARGET [--offline | --no-llm | --llm] [--json] [--out DIR]
+           [--query TEXT] [--jewels N] [--context TEXT] [--cache-dir DIR]
+```
 
 ```python
 import oni
-
-result = oni.teardown("Aider-AI/aider", query="repo map", n_jewels=15)
-print(result["jewels"][0]["name"])           # highest-centrality symbol
-print(result["posture"]["banner"])           # how you may adopt it
-for a in result["adoption"]["adopt"]:
-    print(a["pattern"], "→", a["build"], f"({a['effort']})")
+from oni import report
+result = oni.teardown("/absolute/path/to/repo", offline=True, n_jewels=8)
+print(report.to_json(result))
 ```
 
-## CLI reference
+`--cache-dir` retains each acquisition in a new `oni-*` subdirectory. Existing cached checkouts
+are not replaced. Use a dedicated cache and remove old acquisitions when you no longer need them.
+Acquisition errors fail the command; unavailable model responses fall back to heuristics.
+Reports written with `--out` can overwrite reports for the same target name.
 
-```
-oni <target> [options]
+## Oni and REA
 
-  <target>            local path | GitHub URL | owner/repo[@ref]
-  -o, --out DIR       write TEARDOWN.md + teardown.json to DIR
-  -q, --query TEXT    bias the crown-jewel ranking toward a concept
-  -n, --jewels N      how many crown jewels to surface (default 12)
-  -c, --context TEXT  your own context, so the adoption plan maps ideas onto it
-  --no-llm            skip the model; structural teardown only
-  --json              print JSON instead of Markdown
-  --cache-dir DIR     clone remotes here (kept) instead of a tempdir
-```
+[REA](https://github.com/morluto/rea) targets broader agent-assisted reverse engineering,
+including binaries, applications and runtime behaviour. Oni focuses on available source:
+small installation, offline structural evidence, dependency centrality and adoption research.
+Oni does not decompile binaries, inspect running applications or replace REA's tool integrations.
+Choose the tool for the evidence you need; no comparative speed or quality claim is established.
 
-## How it stays honest
+## Develop and contribute
 
-- **Fail-soft everywhere.** No git → downloads the tarball. No model → heuristic teardown. No
-  network → works on a local checkout. A dead stage degrades; it doesn't abort the run.
-- **Deterministic.** Same repo in, same ranking out — sorted walks, no randomness.
-- **Read-only.** Oni never modifies the target, and never writes into your project unless you pass `--out`.
-
-## Tests
-
-```bash
-pip install pytest && pytest -q      # runs fully offline against a bundled fixture repo
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]" build packaging
+.venv/bin/python -m pytest -q
+.venv/bin/python -m build
 ```
 
-## Credits
+The CI matrix is configured for Python 3.8–3.14 on Linux, Windows and macOS where available, checks base
+wheel dependencies, and installs the built wheel outside the source checkout.
+See [CONTRIBUTING.md](https://github.com/AkuchiS/Oni/blob/main/CONTRIBUTING.md), [SECURITY.md](https://github.com/AkuchiS/Oni/blob/main/SECURITY.md), and [release preparation](https://github.com/AkuchiS/Oni/blob/main/docs/releasing.md).
 
-See [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md). The crown-jewel ranking is Aider's repo-map idea;
-language detection follows github-linguist; the clean-room posture follows established
-reverse-engineering doctrine.
-
-## Licence
-
-MIT — see [LICENSE](LICENSE). Use Oni to learn from code responsibly.
+MIT — [licence](https://github.com/AkuchiS/Oni/blob/main/LICENSE). Ranking inspiration and attribution: [ACKNOWLEDGMENTS.md](https://github.com/AkuchiS/Oni/blob/main/ACKNOWLEDGMENTS.md).

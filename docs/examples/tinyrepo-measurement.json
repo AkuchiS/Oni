@@ -1,0 +1,27 @@
+{
+  "oni_version": "0.2.0rc1",
+  "python": "3.12.3",
+  "platform": "Linux x86_64",
+  "target": "tinyrepo",
+  "source_revision": "bundled-tinyrepo-5cb7a372",
+  "runs": 5,
+  "offline": true,
+  "files": 8,
+  "loc": 42,
+  "top_files": [
+    "core/engine.py",
+    "app.py",
+    "core/helpers.py"
+  ],
+  "repeatable_top10": true,
+  "ranking_sha256": "97906e3ce1d86979b115a6af5e3b8eefda5992e86e1d84b70fd47360f66e2226",
+  "seconds": [
+    0.004208813421428204,
+    0.0028346977196633816,
+    0.0026798532344400883,
+    0.0026632295921444893,
+    0.0026694461703300476
+  ],
+  "median_seconds": 0.0026798532344400883,
+  "interpretation": "Local structural smoke measurement, not comparative performance or ranking accuracy."
+}

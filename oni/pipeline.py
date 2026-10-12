@@ -3,19 +3,22 @@ The one-call entrypoint that runs all seven stages and returns the full result d
 
     acquire → fingerprint → graphmap → jewels → teardown → adopt → report
 
-Every stage is fail-soft; a stage that can't run degrades rather than aborting the run.
+Unavailable model responses fall back to heuristics; acquisition failures are reported.
 """
 import os
 
 from . import acquire, fingerprint as fp_mod, graphmap, jewels as jewels_mod, narrative as td_mod, adopt as adopt_mod
 
 
-def teardown(target, out=None, query=None, n_jewels=12, context=None, cache_dir=None, on_progress=None):
+def teardown(target, out=None, query=None, n_jewels=12, context=None, cache_dir=None, on_progress=None, offline=False, no_llm=False, use_llm=False):
     """Reverse-engineer `target` (path | URL | owner/repo) → result dict (+ files if `out`).
 
     query    : bias the crown-jewel ranking toward a concept ("authentication", "planner").
     context  : the adopter's own context, so the adoption plan maps ideas onto it.
     on_progress(stage) : optional callback for UIs.
+    offline  : require a local directory and disable model requests.
+    use_llm  : explicitly opt into the configured model transport (default False).
+    no_llm   : disable model requests for this call (remote acquisition still allowed).
     """
     def step(name):
         if on_progress:
@@ -25,7 +28,7 @@ def teardown(target, out=None, query=None, n_jewels=12, context=None, cache_dir=
                 pass
 
     step("acquire")
-    tgt = acquire.resolve(target, cache_dir=cache_dir)
+    tgt = acquire.resolve(target, cache_dir=cache_dir, offline=offline)
     try:
         step("fingerprint")
         fp = fp_mod.fingerprint(tgt.root)
@@ -38,11 +41,11 @@ def teardown(target, out=None, query=None, n_jewels=12, context=None, cache_dir=
         ep = jewels_mod.entrypoints(fp, gmap)
 
         step("teardown")
-        td = td_mod.analyze(fp, gmap, jw, ep)
+        td = td_mod.analyze(fp, gmap, jw, ep, use_llm=use_llm and not (offline or no_llm))
 
         step("adopt")
         pos = adopt_mod.posture(fp["license"])
-        ad = adopt_mod.plan(fp, td, pos, target_context=context)
+        ad = adopt_mod.plan(fp, td, pos, target_context=context, use_llm=use_llm and not (offline or no_llm))
 
         result = {
             "target": tgt.slug,

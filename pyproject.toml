@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oni-re"
-version = "0.1.0"
-description = "A clean-room, source-level reverse-engineering engine: tear a repo down to the patterns worth rebuilding."
+version = "0.2.0rc1"
+description = "Offline source architecture analysis: rank central code and draft evidence-based adoption plans."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [{ name = "AkuchiS" }]
-keywords = ["reverse-engineering", "repo-map", "code-analysis", "pagerank", "teardown", "clean-room", "llm"]
+keywords = ["reverse-engineering", "repo-map", "code-analysis", "pagerank", "teardown", "static-analysis", "developer-tools", "codebase-understanding", "llm"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -25,10 +25,14 @@ dev = ["pytest>=7"]
 
 [project.scripts]
 oni = "oni.cli:main"
+oni-mcp = "oni.mcp:main"
 
 [project.urls]
-Homepage = "https://github.com/AkuchiS/oni"
-Source = "https://github.com/AkuchiS/oni"
+Homepage = "https://github.com/AkuchiS/Oni"
+Source = "https://github.com/AkuchiS/Oni"
+Documentation = "https://github.com/AkuchiS/Oni#readme"
+Issues = "https://github.com/AkuchiS/Oni/issues"
+Changelog = "https://github.com/AkuchiS/Oni/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 packages = ["oni"]

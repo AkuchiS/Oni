@@ -62,7 +62,7 @@ def _py_defs(text):
     defs = {}
     try:
         tree = ast.parse(text)
-    except (SyntaxError, ValueError):
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
         return _regex_defs(text, _DEF_PATTERNS.get("Python", []))
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -141,7 +141,7 @@ def build(fp, query=None, max_files=4000):
             w = _interesting(ident) * cnt
             if w <= 0:
                 continue
-            for dst in definers:
+            for dst in sorted(definers):
                 if dst == rel:
                     continue                       # ignore self-references
                 out_edges[rel][dst] += w
@@ -163,9 +163,9 @@ def build(fp, query=None, max_files=4000):
         refs = sum(1 for s in files if (sym, dst) in ident_edges[s])
         symbols.append({"name": sym, "file": dst, "line": lineno, "kind": kind,
                         "score": score, "referrers": refs})
-    symbols.sort(key=lambda s: -s["score"])
+    symbols.sort(key=lambda s: (-s["score"], s["file"], s["name"]))
 
-    ranked_files = sorted(files, key=lambda f: -ranks.get(f, 0.0))
+    ranked_files = sorted(files, key=lambda f: (-ranks.get(f, 0.0), f))
     return {
         "files": [{"path": f, "lang": file_lang[f], "rank": ranks.get(f, 0.0),
                    "defs": len(file_defs[f])} for f in ranked_files],
@@ -229,5 +229,5 @@ def _clusters(ranked_files, ranks):
         agg[top]["files"] += 1
         agg[top]["rank"] += ranks.get(f, 0.0)
     out = [{"dir": k, "files": v["files"], "rank": v["rank"]} for k, v in agg.items()]
-    out.sort(key=lambda c: -c["rank"])
+    out.sort(key=lambda c: (-c["rank"], c["dir"]))
     return out

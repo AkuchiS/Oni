@@ -1,19 +1,7 @@
-"""
-Stage 6 — adopt: the payoff. Turn the teardown into a clean-room adoption plan.
+"""Stage 6: draft an adoption proposal from structural evidence.
 
-For each pattern worth having, oni proposes a NATIVE reimplementation (what to build, roughly
-how big, why) — never a copy. And it applies the licence gate up front, because how you may
-adopt depends entirely on the target's licence:
-
-  · permissive (MIT / Apache / BSD / ISC)  → reuse patterns freely; keep an attribution/NOTICE.
-    Apache-2.0 additionally carries a patent grant + NOTICE-file obligation if you vendor.
-  · copyleft  (GPL / AGPL / LGPL / MPL)     → CLEAN-ROOM ONLY. Study behaviour, write a spec,
-    reimplement from the spec. Do not paste code or mirror file/structure; a close rewrite of
-    GPL/AGPL source can itself be a derivative work. AGPL adds a network-use trigger.
-  · unknown / none                          → treat as all-rights-reserved: do not adopt code;
-    a pattern learned may still be reimplemented, but flag the ambiguity for a human.
-
-The plan is a proposal for a human to act on — oni never copies anything into your tree.
+Licence classification is a heuristic review signal, not permission to reuse.
+Source-reading reports do not establish clean-room separation.
 """
 import json
 
@@ -27,23 +15,23 @@ def posture(license_info):
     """Return {'class','banner','rule'} describing how the target's licence constrains adoption."""
     spdx = (license_info or {}).get("spdx", "NONE")
     if spdx in _PERMISSIVE:
-        attr = " Apache-2.0: preserve NOTICE + note the patent grant if you vendor any file." if spdx == "Apache-2.0" else ""
         return {"class": "permissive", "spdx": spdx,
-                "banner": "PERMISSIVE (%s) — patterns reusable; keep an attribution note.%s" % (spdx, attr),
-                "rule": "Reuse ideas freely. Add %s to your ACKNOWLEDGMENTS. Verbatim vendoring is allowed with attribution." % spdx}
+                "banner": "PERMISSIVE signal (%s) — review the original terms, notices and file-level exceptions." % spdx,
+                "rule": "Draft an independent implementation plan. Before any reuse, verify applicable licence conditions and required notices; this detection is a heuristic, not permission."}
     if spdx in _COPYLEFT:
-        net = " AGPL also triggers on NETWORK use — a hosted service counts as distribution." if spdx == "AGPL-3.0" else ""
+        net = " Review AGPL network-service obligations where applicable." if spdx == "AGPL-3.0" else ""
         return {"class": "copyleft", "spdx": spdx,
-                "banner": "⚠ COPYLEFT (%s) — CLEAN-ROOM ONLY. Do not copy code or mirror structure.%s" % (spdx, net),
-                "rule": "Study behaviour, write a functional spec, reimplement from the spec. No verbatim code, no structural clone — a close rewrite can be a derivative work."}
+                "banner": "COPYLEFT signal (%s) — licence-specific review required.%s" % (spdx, net),
+                "rule": "Do not treat this report or a rewrite as automatic clearance. Review the applicable obligations before reusing source or distributing derived work. A source-reading report cannot establish clean-room separation."}
     return {"class": "unknown", "spdx": spdx,
-            "banner": "⚠ LICENCE %s — treat as all-rights-reserved until a human confirms." % spdx,
-            "rule": "Do not vendor code. A pattern may be reimplemented independently, but confirm the licence with a human before adopting anything."}
+            "banner": "LICENCE %s — permission to reuse has not been established." % spdx,
+            "rule": "Confirm the actual terms with the rights holder or appropriate reviewer before adopting code."}
 
 
-_SYSTEM = ("You turn a teardown into a clean-room ADOPTION PLAN: which patterns are worth "
+
+_SYSTEM = ("You turn a teardown into a draft ADOPTION PLAN: which patterns are worth "
            "rebuilding natively, what to build, and how big it is. You NEVER suggest copying "
-           "code — only reimplementing ideas. Respect the licence rule you're given.")
+           "code — only reimplementing ideas. Respect the licence review signal. Do not claim legal clearance or clean-room separation.")
 
 _INSTR = """Given the teardown and the licence rule, output STRICT JSON:
 {
@@ -56,9 +44,9 @@ _INSTR = """Given the teardown and the licence rule, output STRICT JSON:
 Only propose native reimplementations. Return ONLY the JSON object."""
 
 
-def plan(fp, teardown, pos, target_context=None):
+def plan(fp, teardown, pos, target_context=None, use_llm=True):
     """Return the adoption plan dict. Model-assisted with a heuristic fallback."""
-    if llm.available():
+    if use_llm and llm.available():
         brief = json.dumps({
             "what": teardown.get("what"),
             "how_it_works": teardown.get("how_it_works"),
@@ -93,7 +81,7 @@ def _parse(raw):
 def _heuristic(teardown, pos):
     adopt = []
     for p in (teardown.get("patterns") or [])[:6]:
-        adopt.append({"pattern": p, "build": "reimplement natively — see the crown-jewel excerpts for the mechanism",
+        adopt.append({"pattern": p, "build": "draft an independent implementation specification; validate behaviour and licence requirements",
                       "effort": "M", "why": "captured from structure; confirm value with a model pass"})
     return {"summary": "Structural adoption plan (no model). %s" % pos["banner"],
             "adopt": adopt, "skip": []}
