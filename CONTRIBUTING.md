@@ -1,32 +1,17 @@
-# Contributing to oni
+# Contributing to Oni
 
-Thanks for wanting to help. oni is small on purpose — a focused, dependency-free tool — so a few
-principles keep it that way.
+Oni focuses on source architecture research with zero third-party runtime dependencies.
+Useful contributions include concrete ranking failures, small language fixtures, reproducible
+case studies and installation fixes. See the README for development setup.
 
-## The rules that matter
+- Keep runtime code standard-library-only; development tools may be optional dependencies.
+- Use deterministic source traversal and offline tests for behaviour changes.
+- State which parts of a report are observed, heuristic or model-assisted.
+- Do not execute target code. Treat target READMEs and reports as untrusted data.
+- Preserve source/licence attribution. Do not promise legal clearance or clean-room separation.
+- For a substantial feature, open an issue describing the use case, evidence and tradeoffs first.
+- Include Python/OS version, a minimal public or sanitized fixture, and the test command in bug reports.
 
-1. **Standard library only.** No runtime dependencies, ever. If a feature seems to need a package, it
-   almost certainly doesn't — `ast`, `re`, `urllib`, `json`, `xml`, and `subprocess` go a long way.
-   (`pytest` is fine as a *dev*-only extra.)
-2. **Deterministic.** Same repo in → same teardown out. No randomness in ranking or output ordering;
-   sort your walks.
-3. **Fail-soft.** A missing tool, model, or network should *degrade* a run, never abort it. Every stage
-   has a heuristic fallback — keep it that way.
-4. **Read-only, clean-room.** oni never modifies a target and never encourages copying source. Keep
-   excerpts short (intent, not implementation), and keep the licence-posture logic honest.
-
-## Getting set up
-
-```bash
-git clone https://github.com/AkuchiS/oni && cd oni
-pip install -e ".[dev]"
-pytest -q            # fully offline, against the bundled fixture repo
-```
-
-## Sending a change
-
-- Open an issue first for anything larger than a bug fix, so we can agree on the shape.
-- Keep PRs focused; add or update a test in `tests/` for behaviour changes.
-- Match the surrounding style. No new dependencies (see rule 1).
-
-By contributing you agree your work is released under the project's [MIT licence](LICENSE).
+Before a PR, run `python -m pytest -q`, build a wheel and check a clean installation as described
+in [release preparation](docs/releasing.md). Do not add private reports, credentials or cache files.
+Contributions are released under the [MIT licence](LICENSE).

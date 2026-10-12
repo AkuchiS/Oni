@@ -1,0 +1,7 @@
+include LICENSE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md ACKNOWLEDGMENTS.md install.sh
+recursive-include fixtures *.py *.toml *.md LICENSE
+recursive-include docs *.md *.json
+recursive-include skills *.md
+recursive-include scripts *.py
+recursive-include tests *.py
+recursive-include assets *.svg

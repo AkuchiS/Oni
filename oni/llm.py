@@ -1,66 +1,103 @@
+"""Optional model transport. The public pipeline requires explicit use_llm=True.
+
+ONI_ENDPOINT pairs only with ONI_API_KEY. If only ONI_API_KEY is set, it uses
+https://api.openai.com/v1. Otherwise OPENAI_BASE_URL / OPENAI_API_BASE and
+OPENAI_API_KEY form the generic pair. ONI_MODEL / OPENAI_MODEL select the model.
+ONI_NO_LLM always disables this transport. Credentialed endpoints require HTTPS.
 """
-A minimal, optional, OpenAI-compatible chat client over stdlib urllib.
-
-oni never *requires* a model — every stage has a heuristic fallback. But if one is configured
-it writes a much better narrative. Configuration is by environment, so it drops straight onto
-an OpenAI, OpenRouter, Ollama, vLLM, or any OpenAI-compatible endpoint:
-
-    ONI_ENDPOINT   (or OPENAI_BASE_URL / OPENAI_API_BASE)  default https://api.openai.com/v1
-    ONI_API_KEY    (or OPENAI_API_KEY)                     optional (Ollama/local need none)
-    ONI_MODEL      (or OPENAI_MODEL)                        default gpt-4o-mini
-
-`available()` tells the pipeline whether to bother; `complete()` returns text or None. It never
-raises into the pipeline — a dead endpoint just means the heuristic path is taken.
-"""
-import os
+import ipaddress
+import http.client
 import json
-import urllib.request
+import os
+import sys
 import urllib.error
+import urllib.parse
+import urllib.request
+
+
+def _config():
+    if os.environ.get("ONI_ENDPOINT"):
+        base, key = os.environ["ONI_ENDPOINT"], os.environ.get("ONI_API_KEY", "")
+    elif os.environ.get("ONI_API_KEY"):
+        base, key = "https://api.openai.com/v1", os.environ["ONI_API_KEY"]
+    else:
+        base = os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or "https://api.openai.com/v1"
+        key = os.environ.get("OPENAI_API_KEY", "")
+    return base.rstrip("/"), key
 
 
 def _base():
-    b = (os.environ.get("ONI_ENDPOINT") or os.environ.get("OPENAI_BASE_URL")
-         or os.environ.get("OPENAI_API_BASE") or "https://api.openai.com/v1")
-    return b.rstrip("/")
+    return _config()[0]
 
 
 def _key():
-    return os.environ.get("ONI_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+    return _config()[1]
 
 
 def model():
     return os.environ.get("ONI_MODEL") or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
 
 
+def _loopback(host):
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def available():
-    """A model is usable if a key is set, or the endpoint is a local one (no key needed)."""
     if os.environ.get("ONI_NO_LLM"):
         return False
-    if _key():
-        return True
-    b = _base().lower()
-    return any(h in b for h in ("localhost", "127.0.0.1", "0.0.0.0", "ollama", ":11434", ":8000", ":1234"))
+    base, key = _config()
+    try:
+        url = urllib.parse.urlsplit(base)
+        if url.username or url.password or url.query or url.fragment or not url.hostname:
+            return False
+        if url.scheme not in ("https", "http") or (key and url.scheme != "https"):
+            return False
+        # Unauthenticated HTTP is allowed only on the loopback host.
+        return bool(key) or _loopback(url.hostname)
+    except ValueError:
+        return False
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def complete(prompt, system=None, max_tokens=1400, temperature=0.2, timeout=90):
-    """One-shot completion. Returns the text, or None on any failure (caller falls back)."""
     if not available():
         return None
-    msgs = []
-    if system:
-        msgs.append({"role": "system", "content": system})
-    msgs.append({"role": "user", "content": prompt})
-    body = json.dumps({
-        "model": model(), "messages": msgs,
-        "max_tokens": max_tokens, "temperature": temperature,
-    }).encode()
+    base, key = _config()
+    messages = ([{"role": "system", "content": system}] if system else [])
+    messages.append({"role": "user", "content": prompt})
+    body = json.dumps({"model": model(), "messages": messages,
+                       "max_tokens": max_tokens, "temperature": temperature}).encode()
     headers = {"Content-Type": "application/json"}
-    if _key():
-        headers["Authorization"] = "Bearer " + _key()
-    req = urllib.request.Request(_base() + "/chat/completions", data=body, headers=headers)
+    if key:
+        headers["Authorization"] = "Bearer " + key
+    req = urllib.request.Request(base + "/chat/completions", data=body, headers=headers)
+    sys.stderr.write("oni: model request to %s\n" % urllib.parse.urlsplit(base).hostname)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            d = json.load(r)
-        return (d["choices"][0]["message"]["content"] or "").strip() or None
-    except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError, OSError):
+        handlers = [_NoRedirect()]
+        if _loopback(urllib.parse.urlsplit(base).hostname):
+            handlers.append(urllib.request.ProxyHandler({}))
+        with urllib.request.build_opener(*handlers).open(req, timeout=timeout) as response:
+            payload = response.read(1024 * 1024 + 1)
+        if len(payload) > 1024 * 1024:
+            return None
+        data = json.loads(payload)
+        choices = data.get("choices") if isinstance(data, dict) else None
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            return None
+        message = choices[0].get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if isinstance(content, str):
+            return content.strip() or None
+        return None
+    except (urllib.error.URLError, http.client.HTTPException, KeyError, ValueError,
+            TypeError, OSError, RecursionError):
         return None

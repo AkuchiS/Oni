@@ -20,6 +20,7 @@ import tempfile
 import subprocess
 import urllib.request
 import urllib.error
+import urllib.parse
 
 _URL_RE = re.compile(
     r"^(?:https?://)?(?:www\.)?github\.com[:/]+(?P<owner>[^/]+)/(?P<repo>[^/#]+?)"
@@ -62,82 +63,109 @@ def _clone(owner, repo, ref, dest):
     if ref:
         cmd += ["--branch", ref]
     cmd += [url, dest]
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=180)
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    subprocess.run(cmd, check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.PIPE, timeout=180, env=env)
+
+
+MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
+MAX_EXTRACT_BYTES = 200 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 20000
 
 
 def _download_tarball(owner, repo, ref, dest):
-    """git-less fallback: GitHub codeload tarball → extract into dest."""
+    """Download a bounded archive; retry missing default refs, never partial extraction."""
     refs = [ref] if ref else ["HEAD", "main", "master"]
     ctx = ssl.create_default_context()
     last = None
     for r in refs:
-        url = "https://codeload.github.com/%s/%s/tar.gz/%s" % (owner, repo, r)
+        url = "https://codeload.github.com/%s/%s/tar.gz/%s" % (owner, repo, urllib.parse.quote(r, safe=""))
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "oni"})
             with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
-                data = resp.read()
-            with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
-                members = tf.getmembers()
-                top = members[0].name.split("/")[0] if members else ""
-                _safe_extract(tf, dest)
-            inner = os.path.join(dest, top)
-            if os.path.isdir(inner):          # codeload wraps everything in a <repo>-<ref>/ dir
-                return inner
-            return dest
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
-            last = e
+                data = resp.read(MAX_DOWNLOAD_BYTES + 1)
+        except urllib.error.URLError as exc:
+            last = exc
             continue
-    raise RuntimeError("could not fetch %s/%s (no git, tarball failed: %s)" % (owner, repo, last))
+        if len(data) > MAX_DOWNLOAD_BYTES:
+            raise RuntimeError("archive exceeds the 50 MiB download limit")
+        try:
+            with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+                top = _safe_extract(tf, dest)
+        except (tarfile.TarError, EOFError, OSError) as exc:
+            raise RuntimeError("invalid or unreadable repository archive") from exc
+        inner = os.path.join(dest, top)
+        return inner if os.path.isdir(inner) else dest
+    raise RuntimeError("could not fetch %s/%s: %s" % (owner, repo, last))
 
 
 def _safe_extract(tf, dest):
-    """Extract, refusing any member that would escape dest (tar path-traversal guard)."""
-    base = os.path.abspath(dest)
-    for m in tf.getmembers():
-        target = os.path.abspath(os.path.join(dest, m.name))
-        if not (target == base or target.startswith(base + os.sep)):
-            raise RuntimeError("unsafe path in tarball: %s" % m.name)
-    tf.extractall(dest)
+    """Validate a bounded set of regular files/directories before writing anything."""
+    base = os.path.realpath(dest)
+    members, total = [], 0
+    for m in tf:
+        total += m.size
+        if len(members) >= MAX_ARCHIVE_MEMBERS or total > MAX_EXTRACT_BYTES or m.size < 0:
+            raise RuntimeError("archive exceeds extraction limits")
+        parts = m.name.rstrip("/").split("/")
+        reserved = any(re.fullmatch(r"CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³]",
+                                   part.split(".")[0], re.I) or part.endswith((" ", "."))
+                       for part in parts)
+        target = os.path.realpath(os.path.join(base, m.name))
+        if (not (target == base or target.startswith(base + os.sep))
+                or "\\" in m.name or ":" in m.name
+                or reserved or not (m.isfile() or m.isdir())):
+            raise RuntimeError("unsafe member in tarball: %s" % m.name)
+        members.append(m)
+    for m in members:
+        target = os.path.join(base, m.name)
+        if m.isdir():
+            os.makedirs(target, exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with tf.extractfile(m) as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+    return members[0].name.split("/")[0] if members else ""
 
 
-def resolve(source, cache_dir=None):
-    """Resolve `source` to a local Target. Local paths win; otherwise fetch from GitHub."""
+def resolve(source, cache_dir=None, offline=False):
+    """Use local paths in place, or acquire into a fresh invocation-owned directory."""
     if source and os.path.isdir(source):
-        root = os.path.abspath(source)
-        return Target(root=root, source=source, remote=False)
-
-    owner = repo = ref = None
-    m = _URL_RE.match(source.strip()) or _SHORT_RE.match(source.strip())
+        return Target(root=os.path.abspath(source), source=source, remote=False)
+    if offline:
+        raise ValueError("offline mode requires an existing local directory; remote acquisition is disabled")
+    m = (_URL_RE.match(source.strip()) or _SHORT_RE.match(source.strip())) if isinstance(source, str) else None
     if not m:
-        raise ValueError(
-            "don't understand target %r — give a local path, a GitHub URL, or owner/repo[@ref]" % source
-        )
-    owner, repo = m.group("owner"), m.group("repo")
-    try:
-        ref = m.group("ref")
-    except IndexError:
-        ref = None
-
-    tmp = tempfile.mkdtemp(prefix="oni-") if not cache_dir else None
+        raise ValueError("give a local path, a GitHub URL, or owner/repo[@ref]")
+    owner, repo, ref = m.group("owner"), m.group("repo"), m.group("ref")
+    if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}", owner)
+            or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", repo) or repo in (".", "..")):
+        raise ValueError("invalid GitHub owner or repository name")
+    if ref and (not re.fullmatch(r"[\w][\w./-]{0,254}", ref) or ".." in ref or "//" in ref
+                or any(part.startswith(".") or part.endswith((".", ".lock")) for part in ref.split("/"))
+                or ref.endswith("/")):
+        raise ValueError("invalid or unsupported GitHub branch/tag reference")
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
-        dest = os.path.join(cache_dir, "%s__%s" % (owner, repo))
-        if os.path.isdir(dest):
-            shutil.rmtree(dest, ignore_errors=True)
-    else:
-        dest = os.path.join(tmp, repo)
-
-    if _have_git():
-        try:
-            _clone(owner, repo, ref, dest)
-            root = dest
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            # branch may not exist, or clone blocked — fall back to tarball
-            shutil.rmtree(dest, ignore_errors=True)
-            os.makedirs(dest, exist_ok=True)
+    # Neither the target name nor a previous cached checkout is ever a deletion target.
+    owned = tempfile.mkdtemp(prefix="oni-", dir=cache_dir)
+    dest = os.path.join(owned, "source")
+    if os.path.dirname(os.path.realpath(dest)) != os.path.realpath(owned):
+        raise RuntimeError("acquisition directory escaped its owned parent")
+    try:
+        if _have_git():
+            try:
+                _clone(owner, repo, ref, dest)
+                root = dest
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                shutil.rmtree(dest, ignore_errors=True)  # created only by this invocation
+                os.makedirs(dest)
+                root = _download_tarball(owner, repo, ref, dest)
+        else:
+            os.makedirs(dest)
             root = _download_tarball(owner, repo, ref, dest)
-    else:
-        os.makedirs(dest, exist_ok=True)
-        root = _download_tarball(owner, repo, ref, dest)
-
-    return Target(root=root, source=source, owner=owner, repo=repo, ref=ref, remote=True, tmp=tmp)
+    except Exception:
+        shutil.rmtree(owned, ignore_errors=True)
+        raise
+    return Target(root=root, source=source, owner=owner, repo=repo, ref=ref,
+                  remote=True, tmp=None if cache_dir else owned)

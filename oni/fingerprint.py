@@ -31,8 +31,8 @@ _LICENSE_FILES = ("license", "license.txt", "license.md", "licence", "copying", 
 
 def detect_license(root):
     """Return {'spdx','name','copyleft','source'} — best effort from the LICENSE file text."""
-    for name in os.listdir(root) if os.path.isdir(root) else []:
-        if name.lower() in _LICENSE_FILES:
+    for name in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+        if name.lower() in _LICENSE_FILES and not util.is_linklike(os.path.join(root, name)):
             text = util.read_text(os.path.join(root, name), limit=20000).lower()
             for spdx, (human, copyleft), needles in _LICENSE_SIGNS:
                 if all(n in text for n in needles):
@@ -118,14 +118,15 @@ _MANIFESTS = {
 def _find_manifests(root):
     """Parse recognised manifests found at (or one level below) the repo root."""
     out = []
-    roots = [root] + [os.path.join(root, d) for d in os.listdir(root)
-                      if os.path.isdir(os.path.join(root, d)) and d not in util.SKIP_DIRS] \
+    roots = [root] + [os.path.join(root, d) for d in sorted(os.listdir(root))
+                      if d not in util.SKIP_DIRS and not util.is_linklike(os.path.join(root, d))
+                      and os.path.isdir(os.path.join(root, d))] \
         if os.path.isdir(root) else [root]
     seen = set()
     for base in roots[:12]:
         for fn, parser in _MANIFESTS.items():
             p = os.path.join(base, fn)
-            if os.path.isfile(p) and p not in seen:
+            if p not in seen and not util.is_linklike(p) and os.path.isfile(p):
                 seen.add(p)
                 try:
                     got = parser(p)
@@ -140,7 +141,7 @@ def _find_manifests(root):
 def _readme_blurb(root):
     for name in ("README.md", "README.rst", "README.txt", "README", "readme.md"):
         p = os.path.join(root, name)
-        if os.path.isfile(p):
+        if not util.is_linklike(p) and os.path.isfile(p):
             text = util.read_text(p, limit=4000)
             # First real prose paragraph. Modern READMEs open with an HTML block — a centred
             # <div>, a logo <img>, a row of badges — and stripping only markdown punctuation let

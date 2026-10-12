@@ -1,0 +1,34 @@
+{
+  "oni_version": "0.2.0rc1",
+  "python": "3.12.3",
+  "platform": "Linux x86_64",
+  "target": "oni-baseline",
+  "source_revision": "5cb7a37253b70224148417a837bd752b4553eb7f",
+  "runs": 5,
+  "offline": true,
+  "files": 32,
+  "loc": 1737,
+  "top_files": [
+    "oni/llm.py",
+    "oni/util.py",
+    "oni/acquire.py",
+    "oni/pipeline.py",
+    "oni/fingerprint.py",
+    "oni/graphmap.py",
+    "oni/adopt.py",
+    "oni/jewels.py",
+    "oni/report.py",
+    "oni/narrative.py"
+  ],
+  "repeatable_top10": true,
+  "ranking_sha256": "e5dcbad46894c58adf54ad725fbf5074120ba61df03f92cfc2f5d2482afc7930",
+  "seconds": [
+    0.033688523806631565,
+    0.02886047214269638,
+    0.02862956700846553,
+    0.028620208147913218,
+    0.02914438908919692
+  ],
+  "median_seconds": 0.02886047214269638,
+  "interpretation": "Local structural smoke measurement, not comparative performance or ranking accuracy."
+}

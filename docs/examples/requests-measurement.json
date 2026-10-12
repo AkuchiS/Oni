@@ -1,0 +1,34 @@
+{
+  "oni_version": "0.2.0rc1",
+  "python": "3.12.3",
+  "platform": "Linux x86_64",
+  "target": "requests",
+  "source_revision": "b25c87d7cb8d6a18a37fa12442b5f883f9e41741",
+  "runs": 5,
+  "offline": true,
+  "files": 118,
+  "loc": 13627,
+  "top_files": [
+    "src/requests/models.py",
+    "src/requests/sessions.py",
+    "src/requests/cookies.py",
+    "src/requests/api.py",
+    "src/requests/exceptions.py",
+    "src/requests/structures.py",
+    "src/requests/adapters.py",
+    "src/requests/utils.py",
+    "src/requests/auth.py",
+    "src/requests/_internal_utils.py"
+  ],
+  "repeatable_top10": true,
+  "ranking_sha256": "c9ddf1d21ffc9d8b2e3020ac09935711c4bfc202c0401d51cc7b0f2909977e9c",
+  "seconds": [
+    0.09766471711918712,
+    0.06718490598723292,
+    0.06738214660435915,
+    0.06765020871534944,
+    0.0673211719840765
+  ],
+  "median_seconds": 0.06738214660435915,
+  "interpretation": "Local structural smoke measurement, not comparative performance or ranking accuracy."
+}

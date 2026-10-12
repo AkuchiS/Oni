@@ -10,7 +10,6 @@ Examples:
     oni ./some/local/repo --query "repo map ranking"
     oni https://github.com/psf/requests --no-llm --out ./teardowns
 """
-import os
 import sys
 import argparse
 
@@ -20,7 +19,7 @@ from . import __version__, pipeline, report
 def build_parser():
     p = argparse.ArgumentParser(
         prog="oni",
-        description="Reverse-engineer a repo down to the patterns worth rebuilding (clean-room).",
+        description="Map source architecture, rank central symbols, and draft an adoption plan.",
     )
     p.add_argument("target", nargs="?", help="local path | GitHub URL | owner/repo[@ref]")
     p.add_argument("-o", "--out", default=None, help="write TEARDOWN.md + teardown.json to this dir")
@@ -29,7 +28,10 @@ def build_parser():
     p.add_argument("-n", "--jewels", type=int, default=12, help="how many crown jewels to surface")
     p.add_argument("-c", "--context", default=None,
                    help="your own context so the adoption plan maps ideas onto it")
+    p.add_argument("--llm", action="store_true", help="opt into sending a brief to the configured model")
     p.add_argument("--no-llm", action="store_true", help="skip the model; structural teardown only")
+    p.add_argument("--offline", action="store_true",
+                   help="require a local directory and disable all Oni network acquisition/model calls")
     p.add_argument("--json", action="store_true", help="print JSON to stdout instead of Markdown")
     p.add_argument("--cache-dir", default=None, help="clone remotes here (kept) instead of a tempdir")
     p.add_argument("-V", "--version", action="version", version="oni " + __version__)
@@ -41,8 +43,6 @@ def main(argv=None):
     if not args.target:
         build_parser().print_help()
         return 2
-    if args.no_llm:
-        os.environ["ONI_NO_LLM"] = "1"
 
     def progress(stage):
         sys.stderr.write("  oni: %s…\n" % stage)
@@ -52,8 +52,9 @@ def main(argv=None):
         result = pipeline.teardown(
             args.target, out=args.out, query=args.query, n_jewels=args.jewels,
             context=args.context, cache_dir=args.cache_dir, on_progress=progress,
+            offline=args.offline, no_llm=args.no_llm, use_llm=args.llm,
         )
-    except (ValueError, RuntimeError) as e:
+    except (ValueError, RuntimeError, OSError) as e:
         sys.stderr.write("oni: %s\n" % e)
         return 1
 
