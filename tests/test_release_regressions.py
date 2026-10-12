@@ -261,3 +261,20 @@ def test_metadata_links_are_skipped_before_following_stat(monkeypatch, tmp_path)
     monkeypatch.setattr(os.path, "isfile", guarded(original_file))
     result = fingerprint.fingerprint(str(root))
     assert not result["readme"] and not result["manifests"]
+
+
+@pytest.mark.parametrize("target", ["gh:x/..", "gh:x/repo", "https://github.com/x/repo",
+                                    "github.com:x/..", "www.github.com:x/.."])
+def test_explicit_remote_offline_never_probes_local_path(monkeypatch, target):
+    monkeypatch.setattr(acquire.os.path, "isdir", forbidden)
+    with pytest.raises(ValueError, match="offline mode"):
+        acquire.resolve(target, offline=True)
+
+
+@pytest.mark.parametrize("target", ["gh:x/..", "github.com:x/..", "www.github.com:x/.."])
+def test_malformed_remote_rejected_even_if_platform_reports_directory(monkeypatch, target):
+    monkeypatch.setattr(acquire.os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(acquire.tempfile, "mkdtemp", forbidden)
+    monkeypatch.setattr(acquire.shutil, "rmtree", forbidden)
+    with pytest.raises(ValueError, match="invalid GitHub"):
+        acquire.resolve(target)

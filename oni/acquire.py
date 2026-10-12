@@ -130,7 +130,11 @@ def _safe_extract(tf, dest):
 
 def resolve(source, cache_dir=None, offline=False):
     """Use local paths in place, or acquire into a fresh invocation-owned directory."""
-    if source and os.path.isdir(source):
+    # Explicit remote syntax must never be interpreted by platform path rules.
+    # Windows may resolve malformed colon-containing paths such as gh:x/.. locally.
+    explicit_remote = isinstance(source, str) and source.strip().lower().startswith(
+        ("gh:", "http://", "https://", "github.com:", "www.github.com:"))
+    if source and not explicit_remote and os.path.isdir(source):
         return Target(root=os.path.abspath(source), source=source, remote=False)
     if offline:
         raise ValueError("offline mode requires an existing local directory; remote acquisition is disabled")

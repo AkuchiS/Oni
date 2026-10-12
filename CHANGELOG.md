@@ -6,6 +6,7 @@
 - Validate remote repository names and use fresh acquisition directories without deleting old caches.
 - Detect GitHub workflows instead of skipping the entire `.github` directory.
 - Add Windows path/reparse-point guards and deterministic ranking tie breaks.
+- Parse explicit remote prefixes before local path detection; use `./` for literal local names beginning with a remote prefix.
 - Add explicit offline CLI/library analysis without process-wide environment changes.
 - Add a local stdio MCP server restricted to configured source roots.
 - Reject archive links/special files and skip source symlinks.
